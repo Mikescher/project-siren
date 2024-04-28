@@ -1,0 +1,14 @@
+_build
+_run-data
+.idea
+
+DOCKER_GIT_INFO
+
+# Swagger
+swagger/swagger.json
+swagger/swagger.yaml
+.swaggobin*
+
+# Generated Go Files
+*_gen.go
+*.pkl.go
