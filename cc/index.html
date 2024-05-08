@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Project Siren -CC</title>
+
+    <script src="https://kit.fontawesome.com/061d97db52.js" crossorigin="anonymous"></script>
+
+    <style>
+
+        html, body {
+            width: 100vw;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #command-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+
+            margin: 1rem;
+
+            overflow-y: scroll;
+        }
+
+        .command-item {
+            border: 1px solid #888;
+
+            padding: 4px;
+            box-sizing: content-box;
+
+            display: grid;
+            grid-template-columns: 6rem 24rem 10rem 1fr auto;
+            grid-gap: 1rem;
+
+            align-items: center;
+
+            > * { white-space: pre; }
+
+            .status { padding: 2px 8px; text-align: center; }
+
+            .date {}
+
+            .action { font-weight: bold; }
+
+            .str { font-family: monospace; color: #242; background-color: #AFA; padding: 2px 4px; border: 1px solid #7B7; }
+
+            &[data-status='PENDING']  > .status { background-color: #FF0; border: 1px solid #880; border-radius: 8px; }
+            &[data-status='SKIPPED']  > .status { background-color: #FA0; border: 1px solid #F80; border-radius: 8px; }
+            &[data-status='EXECUTED'] > .status { background-color: #8AF; border: 1px solid #008; border-radius: 8px; }
+
+            .copy       { border: 1px solid transparent; background: none; cursor: pointer; }
+            .copy:hover { border: 1px solid #888;        background: #DDD;                  }
+
+        }
+
+        .user-input {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+
+            margin: 1rem;
+            padding: 0.5rem;
+            border: 1px solid #888;
+
+            flex-grow: 1;
+
+            .cmd-area {
+                textarea {
+                    resize: none;
+                    width: 100%;
+                    min-width: 0;
+                    box-sizing: border-box;
+                    height: 100%;
+                }
+            }
+
+            .cmd-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+        }
+
+
+        .btn {
+            background: #DFDFDF;
+            border: 1px solid #888;
+            cursor: pointer;
+
+            padding: 4px;
+
+            &:hover { background-color: #AAA; }
+        }
+
+        .btn.primary {
+            background: #58E;
+            border: 1px solid #248;
+
+            &:hover { background-color: #46A; }
+        }
+
+
+        .header {
+
+            margin-top: 1rem;
+            margin-left: 1rem;
+            font-size: 3rem;
+
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+
+            i {
+                color: #800;
+                animation: weewoo 0.75s infinite ease-in-out alternate;
+            }
+
+            span {
+                font-family: sans-serif;
+                font-weight: bold;
+                color: #600;
+            }
+
+        }
+
+        @keyframes weewoo {
+            from {
+                color: #800;
+                transform: scale(1.0);
+            }
+            to {
+                color: #F00;
+                transform: scale(1.2);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <i class="fa-solid fa-siren-on"></i>
+    <span>Project Siren 2024</span>
+</div>
+
+<div id="command-list">
+    <!-- ajax -->
+</div>
+
+<script>
+
+const exampleReset = `
+[
+{
+    "action":"RESET",                  //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+}
+]`;
+
+const exampleLamp = `
+[
+{
+    "action":"LAMP",                   //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+}
+]`;
+
+const exampleBuzzer1 = `
+[
+{
+    "action":"BUZZER_1",               //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+}
+]`;
+
+const exampleBuzzer2 = `
+[
+{
+    "action":"BUZZER_2",               //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+}
+]`;
+
+const exampleBuzzer3 = `
+[
+{
+    "action":"BUZZER_3",               //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+}
+]`;
+
+const examplePWMBuzzer = `
+[
+{
+    "action":"BUZZER_PWM",             //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+    "frequency": 2000,                 // Hz, between 1000 and 3000
+}
+]`;
+
+const examplePWMBuzzerFunc = `
+[
+{
+    "action":"BUZZER_PWM_FUNC",        //
+    "delay": 0,                        // milliseconds, optional
+    "duration": 1000,                  // milliseconds
+    "frequencyMin": 2000,              // Hz, between 1000 and 3000
+    "frequencyMax": 2000,              // Hz, between 1000 and 3000
+    "func": "SINUS",                   // ["SINUS", "TRIANGLE", "SAWTOOTH", "SQUARE"]
+    "period": 1000                     // milliseconds
+}
+]`;
+
+const examplePWMBuzzerNotes = `
+[
+{
+    "action":"BUZZER_PWM_NOTES",       //
+    "delay": 0,                        // milliseconds, optional
+    "noteLength": 300,                 // milliseconds, duration of a single note
+    "notes": [1500, 2000, 2500, 3000], // Hz, between 1000 and 3000
+}
+]`;
+
+</script>
+
+<div class="user-input">
+
+    <div class="cmd-area">
+        <label for="cmd"></label>
+        <textarea id="cmd"></textarea>
+    </div>
+
+    <div class="cmd-buttons">
+        <button class="btn primary" onclick="sendCommand()">Send/Run</button>
+        <button class="btn"         onclick="setExample(exampleReset)">[Action:Reset]</button>
+        <button class="btn"         onclick="setExample(exampleLamp)">[Action:Lamp]</button>
+        <button class="btn"         onclick="setExample(exampleBuzzer1)">[Action:Buzzer1]</button>
+        <button class="btn"         onclick="setExample(exampleBuzzer2)">[Action:Buzzer2]</button>
+        <button class="btn"         onclick="setExample(exampleBuzzer3)">[Action:Buzzer3]</button>
+        <button class="btn"         onclick="setExample(examplePWMBuzzer)">[Action:PWMBuzzer]</button>
+        <button class="btn"         onclick="setExample(examplePWMBuzzerFunc)">[Action:PWMBuzzerFunc]</button>
+        <button class="btn"         onclick="setExample(examplePWMBuzzerNotes)">[Action:PWMBuzzerNotes]</button>
+    </div>
+
+</div>
+
+<script>
+    async function sendCommand() {
+        let cmd = document.getElementById('cmd').value;
+
+        await fetch(new Request('/cc', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json' },
+            body: cmd,
+        }));
+
+        await reload();
+    }
+
+    const cyrb53 = (str, seed = 0) => {
+        let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+        for(let i = 0, ch; i < str.length; i++) {
+            ch = str.charCodeAt(i);
+            h1 = Math.imul(h1 ^ ch, 2654435761);
+            h2 = Math.imul(h2 ^ ch, 1597334677);
+        }
+        h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+        h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+        h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+        h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+        return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+    };
+
+    async function reload() {
+
+        let csOld = document.getElementById('command-list').getAttribute('data-checksum');
+
+        const html = await (await fetch(new Request('/history', {
+            method: 'GET',
+            headers: {'Content-Type': 'application/json' },
+        }))).text();
+
+        const csNew = `${cyrb53(html)}`;
+
+        if (csOld === csNew) { console.log('Nothing to refresh, checksum match: ' + csNew); return; }
+
+        console.log('Refresh History, Checksum: ' + csOld + ' -> ' + csNew);
+        document.getElementById('command-list').innerHTML = html;
+        document.getElementById('command-list').setAttribute('data-checksum', csNew)
+    }
+
+    function setExample(v) {
+        document.getElementById('cmd').value = v.trimStart().trimEnd();
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        await reload();
+    });
+
+    setInterval(async () => { await reload(); }, 10*1000);
+
+</script>
+
+</body>
+</html>

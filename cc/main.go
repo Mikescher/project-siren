@@ -1,21 +1,36 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/titanous/json5"
 	"gogs.mikescher.com/BlackForestBytes/goext/exerr"
 	"gogs.mikescher.com/BlackForestBytes/goext/ginext"
+	json "gogs.mikescher.com/BlackForestBytes/goext/gojson"
 	"gogs.mikescher.com/BlackForestBytes/goext/langext"
+	"gogs.mikescher.com/BlackForestBytes/goext/rfctime"
+	"gogs.mikescher.com/BlackForestBytes/goext/timeext"
+	"html/template"
 	"os"
 	"os/signal"
+	"reflect"
 	"sync"
 	"syscall"
 	"time"
 )
 
+//go:embed index.html
+var indexHTML string
+
+//go:embed history.html
+var historyHTML string
+
+var commandHistory = make([]Command, 0)
 var commands = make([]Command, 0)
 var gil = sync.Mutex{}
 
@@ -41,9 +56,12 @@ func main() {
 
 	engine := ginext.NewEngine(ginext.Options{})
 
-	engine.Routes().POST("/").Handle(popCommands)
-	engine.Routes().GET("/").Handle(peekCommands)
-	engine.Routes().PUT("/").Handle(addCommands)
+	engine.Routes().GET("/").Handle(indexPage)
+	engine.Routes().GET("/history").Handle(historyPage)
+
+	engine.Routes().POST("/cc").Handle(popCommands)
+	engine.Routes().GET("/cc").Handle(peekCommands)
+	engine.Routes().PUT("/cc").Handle(addCommands)
 
 	routerErr, router := engine.ListenAndServeHTTP("0.0.0.0:8000", func(port string) {})
 
@@ -70,10 +88,16 @@ func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 
 	t0 := time.Now()
 
-	var b body
-	_, gctx, errResp := pctx.Body(&b).Start()
+	var rb []byte
+	_, gctx, errResp := pctx.RawBody(&rb).Start()
 	if errResp != nil {
 		return *errResp
+	}
+
+	var b body
+	err := json5.Unmarshal(rb, &b)
+	if err != nil {
+		return ginext.Error(err)
 	}
 
 	log.Debug().Msgf("[REQ]  <add> from %s", gctx.ClientIP())
@@ -88,7 +112,11 @@ func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	defer gil.Unlock()
 
 	for _, cmd := range b {
+		cmd.ID = langext.MustHexUUID()
 		cmd.Date = t0
+		cmd.Status = "PENDING"
+		cmd.Executed = nil
+
 		commands = append(commands, cmd)
 
 		log.Info().Msgf("[ADD]  %s", cmd.String())
@@ -108,12 +136,27 @@ func popCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	gil.Lock()
 	defer gil.Unlock()
 
-	commands = langext.ArrFilter(commands, func(cmd Command) bool { return time.Now().Unix()-cmd.Date.Unix() < 60 }) // remove commands older than 60s
+	commands = langext.ArrFilter(commands, func(cmd Command) bool { return time.Now().Unix()-cmd.Date.Unix() < 60 })
 
 	resp := ""
 	for _, cmd := range commands {
-		resp += cmd.String() + "\n"
-		log.Info().Msgf("[POP]  %s", cmd.String())
+
+		if time.Now().Unix()-cmd.Date.Unix() < 60 { // remove commands older than 60s
+
+			cmd.Status = "SKIPPED"
+			commandHistory = append(commandHistory, cmd)
+
+			log.Info().Msgf("[SKIP]  %s", cmd.String())
+		} else {
+
+			cmd.Status = "EXECUTED"
+			cmd.Executed = langext.Ptr(time.Now())
+			commandHistory = append(commandHistory, cmd)
+
+			resp += cmd.String() + "\n"
+			log.Info().Msgf("[POP]  %s", cmd.String())
+		}
+
 	}
 
 	commands = make([]Command, 0)
@@ -141,4 +184,100 @@ func peekCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	}
 
 	return ginext.Text(200, resp)
+}
+
+func indexPage(pctx ginext.PreContext) ginext.HTTPResponse {
+	_, _, errResp := pctx.Start()
+	if errResp != nil {
+		return *errResp
+	}
+
+	templ, err := template.New("index").Funcs(tepmlateFuncs()).Parse(indexHTML)
+	if err != nil {
+		return ginext.Error(err)
+	}
+
+	commandsCopy := func() []Command {
+		gil.Lock()
+		defer gil.Unlock()
+		return langext.ArrCopy(commands)
+	}()
+
+	data := gin.H{
+		"Commands": commandsCopy,
+	}
+
+	buffer := bytes.Buffer{}
+	err = templ.Execute(&buffer, data)
+	if err != nil {
+		return ginext.Error(err)
+	}
+
+	return ginext.Data(200, "text/html", buffer.Bytes())
+}
+
+func tepmlateFuncs() template.FuncMap {
+	return template.FuncMap{
+		"safe": func(s string) template.HTML { return template.HTML(s) }, //nolint:gosec
+		"json": func(obj any) string {
+			v, err := json.Marshal(obj)
+			if err != nil {
+				panic(err)
+			}
+			return string(v)
+		},
+		"json_indent": func(obj any) string {
+			v, err := json.MarshalIndent(obj, "", "  ")
+			if err != nil {
+				panic(err)
+			}
+			return string(v)
+		},
+		"deref": func(vInput any) any {
+			val := reflect.ValueOf(vInput)
+			if val.Kind() == reflect.Ptr {
+				return val.Elem().Interface()
+			}
+			return "NO"
+		},
+		"date": func(v rfctime.AnyTime) string {
+			if r, ok := v.(time.Time); ok {
+				return r.In(timeext.TimezoneBerlin).Format("2006-01-02 15:04:05")
+			}
+			if r, ok := v.(rfctime.RFCTime); ok {
+				return r.Time().In(timeext.TimezoneBerlin).Format("2006-01-02 15:04:05")
+			}
+			return time.Unix(0, v.UnixNano()).In(timeext.TimezoneBerlin).Format("2006-01-02 15:04:05")
+		},
+	}
+}
+
+func historyPage(pctx ginext.PreContext) ginext.HTTPResponse {
+	_, _, errResp := pctx.Start()
+	if errResp != nil {
+		return *errResp
+	}
+
+	templ, err := template.New("history").Funcs(tepmlateFuncs()).Parse(historyHTML)
+	if err != nil {
+		return ginext.Error(err)
+	}
+
+	commandsCopy := func() []Command {
+		gil.Lock()
+		defer gil.Unlock()
+		return langext.ArrConcat(langext.ArrCopy(commandHistory), langext.ArrCopy(commands))
+	}()
+
+	data := gin.H{
+		"Commands": commandsCopy,
+	}
+
+	buffer := bytes.Buffer{}
+	err = templ.Execute(&buffer, data)
+	if err != nil {
+		return ginext.Error(err)
+	}
+
+	return ginext.Data(200, "text/html", buffer.Bytes())
 }

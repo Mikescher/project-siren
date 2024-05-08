@@ -5,6 +5,7 @@ go 1.22.2
 require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/rs/zerolog v1.32.0
+	github.com/titanous/json5 v1.0.0
 	gogs.mikescher.com/BlackForestBytes/goext v0.0.439
 )
 

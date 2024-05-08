@@ -31,11 +31,16 @@ const (
 )
 
 type Command struct {
-	Date time.Time
+	ID string `json:"-"`
 
-	Action   Action `json:"action"`   // [ * ]
-	Delay    int    `json:"delay"`    // [ * ]
-	Duration int    `json:"duration"` // [ * ]
+	Date     time.Time  `json:"-"`
+	Status   string     `json:"-"`
+	Executed *time.Time `json:"-"`
+
+	Action Action `json:"action"` // [ * ]
+	Delay  int    `json:"delay"`  // [ * ]
+
+	Duration int `json:"duration"` // [ * / BUZZER_PWM_NOTES ]
 
 	// ### BUZZER_PWM
 
@@ -104,7 +109,10 @@ func (c Command) Valid() (string, bool) {
 			return "Duration <= 0", false
 		}
 		if c.Frequency < 1000 {
-			return "FrequencyMin <= 0", false
+			return "Frequency < 1000", false
+		}
+		if c.Frequency < 3000 {
+			return "Frequency > 3000", false
 		}
 		return "", true
 
@@ -168,7 +176,7 @@ func (c Command) String() string {
 	case ActionPWMBuzzerFunc:
 		return fmt.Sprintf("%s;%s;delay=%d;duration=%d;frequency_min=%d;frequency_max=%d;func=%s;period=%d", c.Date.In(timeext.TimezoneBerlin).Format(time.RFC3339), c.Action, c.Delay, c.Duration, c.FrequencyMin, c.FrequencyMax, c.Func, c.Period)
 	case ActionPWMBuzzerNotes:
-		return fmt.Sprintf("%s;%s;delay=%d;duration=%d;note_length=%d;notes=%s", c.Date.In(timeext.TimezoneBerlin).Format(time.RFC3339), c.Action, c.Delay, c.Duration, c.NoteLength, strings.Join(langext.ArrMap(c.Notes, func(v int) string { return fmt.Sprintf("%d", v) }), ":"))
+		return fmt.Sprintf("%s;%s;delay=%d;note_length=%d;notes=%s", c.Date.In(timeext.TimezoneBerlin).Format(time.RFC3339), c.Action, c.Delay, c.NoteLength, strings.Join(langext.ArrMap(c.Notes, func(v int) string { return fmt.Sprintf("%d", v) }), ":"))
 	default:
 		return "ERROR"
 	}

@@ -1,0 +1,15 @@
+{{range .Commands}}
+    <div class="command-item" data-status="{{.Status}}">
+
+        <span class="status">{{ .Status   }}</span>
+
+        {{if .Executed}}<span class="date">{{ .Date | date  }} -> {{ .Executed | deref | date }}</span>{{end}}
+        {{if not .Executed}}<span class="date">{{ .Date | date   }}</span>{{end}}
+
+        <span class="action">{{ .Action }}</span>
+
+        <span class="str">{{ .String }}</span>
+
+        <button class="copy" onclick="document.getElementById('cmd').value = '{{. | json_indent}}';"><i class="fas fa-copy"></i></button>
+    </div>
+{{end}}
