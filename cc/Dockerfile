@@ -16,6 +16,8 @@ COPY --from=builder   /buildsrc/_build/server  /app/server
 
 RUN mkdir /data
 
+ENV CC_DATADIR "/data"
+
 WORKDIR /app
 
 EXPOSE 8000

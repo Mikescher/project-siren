@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	json "gogs.mikescher.com/BlackForestBytes/goext/gojson"
 	"gogs.mikescher.com/BlackForestBytes/goext/langext"
 	"gogs.mikescher.com/BlackForestBytes/goext/timeext"
 	"strings"
@@ -180,4 +182,100 @@ func (c Command) String() string {
 	default:
 		return "ERROR"
 	}
+}
+
+func (c Command) Serialize(copy bool) langext.H {
+
+	r := langext.H{}
+
+	if !copy {
+		r["id"] = c.ID
+		r["date"] = c.Date.Format(time.RFC3339Nano)
+		r["status"] = c.Status
+		r["executed"] = langext.ConditionalFn01(c.Executed == nil, nil, func() *string { return langext.Ptr(c.Executed.Format(time.RFC3339Nano)) })
+	}
+
+	r["action"] = c.Action
+
+	if c.Delay > 0 {
+		r["delay"] = c.Delay
+	}
+
+	r["duration"] = c.Duration
+
+	switch c.Action {
+	case ActionReset:
+		return r
+	case ActionLamp:
+		return r
+	case ActionBuzzer1:
+		return r
+	case ActionBuzzer2:
+		return r
+	case ActionBuzzer3:
+		return r
+	case ActionPWMBuzzer:
+		r["frequency"] = c.Frequency
+		return r
+	case ActionPWMBuzzerFunc:
+		r["func"] = c.Func
+		r["frequencyMin"] = c.FrequencyMin
+		r["frequencyMax"] = c.FrequencyMax
+		return r
+	case ActionPWMBuzzerNotes:
+		r["notes"] = c.Notes
+		r["noteLength"] = c.NoteLength
+		return r
+	}
+
+	return nil
+}
+
+func DeserializeCommand(b []byte) (Command, error) {
+	type obj struct {
+		ID           string      `json:"id"`
+		Date         time.Time   `json:"date"`
+		Status       string      `json:"status"`
+		Executed     *time.Time  `json:"executed"`
+		Action       Action      `json:"action"`
+		Delay        int         `json:"delay"`
+		Duration     int         `json:"duration"`
+		Frequency    int         `json:"frequency"`
+		FrequencyMin int         `json:"frequencyMin"`
+		FrequencyMax int         `json:"frequencyMax"`
+		Func         PWMFunction `json:"func"`
+		Period       int         `json:"period"`
+		NoteLength   int         `json:"noteLength"`
+		Notes        []int       `json:"notes"`
+	}
+
+	var o obj
+
+	err := json.Unmarshal(b, &o)
+	if err != nil {
+		return Command{}, err
+	}
+
+	cmd := Command{
+		ID:           o.ID,
+		Date:         o.Date,
+		Status:       o.Status,
+		Executed:     o.Executed,
+		Action:       o.Action,
+		Delay:        o.Delay,
+		Duration:     o.Duration,
+		Frequency:    o.Frequency,
+		FrequencyMin: o.FrequencyMin,
+		FrequencyMax: o.FrequencyMax,
+		Func:         o.Func,
+		Period:       o.Period,
+		NoteLength:   o.NoteLength,
+		Notes:        o.Notes,
+	}
+
+	if v, ok := cmd.Valid(); !ok {
+		return Command{}, errors.New(v)
+	}
+
+	return cmd, nil
 }

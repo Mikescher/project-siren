@@ -10,6 +10,6 @@
 
         <span class="str">{{ .String }}</span>
 
-        <button class="copy" onclick="document.getElementById('cmd').value = '{{. | json_indent}}';"><i class="fas fa-copy"></i></button>
+        <button class="copy" onclick="document.getElementById('cmd').value = '{{ (.Serialize true) | json_indent }}';"><i class="fas fa-copy"></i></button>
     </div>
 {{end}}

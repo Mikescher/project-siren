@@ -18,7 +18,9 @@ import (
 	"html/template"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -33,6 +35,9 @@ var historyHTML string
 var commandHistory = make([]Command, 0)
 var commands = make([]Command, 0)
 var gil = sync.Mutex{}
+
+var dataDir string
+var lastSaveData string
 
 func main() {
 	cw := zerolog.ConsoleWriter{
@@ -53,6 +58,24 @@ func main() {
 	zerolog.SetGlobalLevel(zerolog.DebugLevel)
 
 	exerr.Init(exerr.ErrorPackageConfigInit{})
+
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+
+	dataDir = filepath.Dir(ex)
+
+	if v, ok := os.LookupEnv("CC_DATADIR"); ok {
+		dataDir = v
+	}
+
+	err = os.MkdirAll(dataDir, 0777)
+	if err != nil {
+		panic(err)
+	}
+
+	loadCommands(true)
 
 	engine := ginext.NewEngine(ginext.Options{})
 
@@ -107,6 +130,88 @@ func updateCommands(lock bool) {
 	}
 
 	commands = ncmd
+
+	saveCommands(false)
+}
+
+func saveCommands(lock bool) {
+
+	if lock {
+		gil.Lock()
+		defer gil.Unlock()
+	}
+
+	str := ""
+
+	for _, cmd := range commands {
+
+		b, err := json.Marshal(cmd.Serialize(false))
+		if err != nil {
+			log.Err(err).Msg("failed to marshal command")
+			return
+		}
+
+		str += string(b) + "\n"
+
+	}
+
+	fp := filepath.Join(dataDir, "commands.jsonl")
+
+	if str == lastSaveData {
+		return
+	}
+
+	err := os.WriteFile(fp, []byte(str), 0777)
+	if err != nil {
+		log.Err(err).Msg("failed to write cmds to " + fp)
+		return
+	}
+
+	lastSaveData = str
+
+	fmt.Printf("[SAV] Written %d commands (%d bytes) to '%s'\n", len(commands), len([]byte(str)), fp)
+}
+
+func loadCommands(lock bool) {
+
+	if lock {
+		gil.Lock()
+		defer gil.Unlock()
+	}
+
+	fp := filepath.Join(dataDir, "commands.jsonl")
+
+	if !langext.FileExists(fp) {
+		fmt.Printf("Loaded 0 commands from '%s' (file does not exist)\n", fp)
+		commands = make([]Command, 0)
+		return
+	}
+
+	ncmd := make([]Command, 0)
+
+	bin, err := os.ReadFile(fp)
+	if err != nil {
+		panic("ERR: failed to read commands from " + fp + ":\n" + err.Error())
+	}
+
+	for _, line := range strings.Split(string(bin), "\n") {
+
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		cmd, err := DeserializeCommand([]byte(line))
+		if err != nil {
+			panic("ERR: failed to read commands from " + fp + ":\n" + err.Error() + "\n" + line)
+		}
+
+		ncmd = append(ncmd, cmd)
+	}
+
+	commands = ncmd
+	lastSaveData = string(bin)
+
+	fmt.Printf("Loaded %d commands from '%s'\n", len(ncmd), fp)
 }
 
 func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
@@ -149,6 +254,8 @@ func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 
 		log.Info().Msgf("[ADD]  %s", cmd.String())
 	}
+
+	saveCommands(false)
 
 	return ginext.Text(200, fmt.Sprintf("OK - added %d commands, %d commands enqueued", len(b), len(commands)))
 }
