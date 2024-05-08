@@ -111,7 +111,7 @@ func (c Command) Valid() (string, bool) {
 		if c.Frequency < 1000 {
 			return "Frequency < 1000", false
 		}
-		if c.Frequency < 3000 {
+		if c.Frequency > 3000 {
 			return "Frequency > 3000", false
 		}
 		return "", true
@@ -152,10 +152,10 @@ func (c Command) Valid() (string, bool) {
 				return fmt.Sprintf("Notes[%d] > 3000 && Notes[%d] != 0", i, i), false
 			}
 		}
-		return fmt.Sprintf("Invalid action: %s", c.Action), false
+		return "", true
 
 	default:
-		return "", false
+		return fmt.Sprintf("Invalid action: %s", c.Action), false
 	}
 }
 

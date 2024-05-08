@@ -83,6 +83,32 @@ func main() {
 	log.Info().Msg("Server finished.")
 }
 
+func updateCommands(lock bool) {
+
+	if lock {
+		gil.Lock()
+		defer gil.Unlock()
+	}
+
+	ncmd := make([]Command, 0, len(commands))
+
+	for _, cmd := range commands {
+
+		if time.Now().Unix()-cmd.Date.Unix() > 60 { // remove commands older than 60s
+
+			cmd.Status = "SKIPPED"
+			commandHistory = append(commandHistory, cmd)
+
+			log.Info().Msgf("[SKIP]  %s", cmd.String())
+		} else {
+			ncmd = append(ncmd, cmd)
+		}
+
+	}
+
+	commands = ncmd
+}
+
 func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	type body []Command
 
@@ -111,6 +137,8 @@ func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	gil.Lock()
 	defer gil.Unlock()
 
+	updateCommands(false)
+
 	for _, cmd := range b {
 		cmd.ID = langext.MustHexUUID()
 		cmd.Date = t0
@@ -136,26 +164,17 @@ func popCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	gil.Lock()
 	defer gil.Unlock()
 
-	commands = langext.ArrFilter(commands, func(cmd Command) bool { return time.Now().Unix()-cmd.Date.Unix() < 60 })
+	updateCommands(false)
 
 	resp := ""
 	for _, cmd := range commands {
 
-		if time.Now().Unix()-cmd.Date.Unix() < 60 { // remove commands older than 60s
+		cmd.Status = "EXECUTED"
+		cmd.Executed = langext.Ptr(time.Now())
+		commandHistory = append(commandHistory, cmd)
 
-			cmd.Status = "SKIPPED"
-			commandHistory = append(commandHistory, cmd)
-
-			log.Info().Msgf("[SKIP]  %s", cmd.String())
-		} else {
-
-			cmd.Status = "EXECUTED"
-			cmd.Executed = langext.Ptr(time.Now())
-			commandHistory = append(commandHistory, cmd)
-
-			resp += cmd.String() + "\n"
-			log.Info().Msgf("[POP]  %s", cmd.String())
-		}
+		resp += cmd.String() + "\n"
+		log.Info().Msgf("[POP]  %s", cmd.String())
 
 	}
 
@@ -175,7 +194,7 @@ func peekCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	gil.Lock()
 	defer gil.Unlock()
 
-	commands = langext.ArrFilter(commands, func(cmd Command) bool { return time.Now().Unix()-cmd.Date.Unix() < 60 }) // remove commands older than 60s
+	updateCommands(false)
 
 	resp := ""
 	for _, cmd := range commands {
@@ -197,10 +216,12 @@ func indexPage(pctx ginext.PreContext) ginext.HTTPResponse {
 		return ginext.Error(err)
 	}
 
+	updateCommands(true)
+
 	commandsCopy := func() []Command {
 		gil.Lock()
 		defer gil.Unlock()
-		return langext.ArrCopy(commands)
+		return langext.ArrConcat(langext.ArrCopy(commandHistory), langext.ArrCopy(commands))
 	}()
 
 	data := gin.H{
@@ -262,6 +283,8 @@ func historyPage(pctx ginext.PreContext) ginext.HTTPResponse {
 	if err != nil {
 		return ginext.Error(err)
 	}
+
+	updateCommands(true)
 
 	commandsCopy := func() []Command {
 		gil.Lock()
