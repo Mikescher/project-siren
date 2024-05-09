@@ -143,6 +143,18 @@ func saveCommands(lock bool) {
 
 	str := ""
 
+	for _, cmd := range commandHistory {
+
+		b, err := json.Marshal(cmd.Serialize(false))
+		if err != nil {
+			log.Err(err).Msg("failed to marshal command")
+			return
+		}
+
+		str += string(b) + "\n"
+
+	}
+
 	for _, cmd := range commands {
 
 		b, err := json.Marshal(cmd.Serialize(false))
@@ -169,7 +181,7 @@ func saveCommands(lock bool) {
 
 	lastSaveData = str
 
-	fmt.Printf("[SAV] Written %d commands (%d bytes) to '%s'\n", len(commands), len([]byte(str)), fp)
+	fmt.Printf("[SAV] Written [%d+%d] commands (%d bytes) to '%s'\n", len(commands), len(commandHistory), len([]byte(str)), fp)
 }
 
 func loadCommands(lock bool) {
@@ -188,6 +200,7 @@ func loadCommands(lock bool) {
 	}
 
 	ncmd := make([]Command, 0)
+	hcmd := make([]Command, 0)
 
 	bin, err := os.ReadFile(fp)
 	if err != nil {
@@ -205,13 +218,19 @@ func loadCommands(lock bool) {
 			panic("ERR: failed to read commands from " + fp + ":\n" + err.Error() + "\n" + line)
 		}
 
-		ncmd = append(ncmd, cmd)
+		if cmd.Status == "PENDING" {
+			ncmd = append(ncmd, cmd)
+		} else {
+			hcmd = append(hcmd, cmd)
+		}
+
 	}
 
 	commands = ncmd
+	commandHistory = hcmd
 	lastSaveData = string(bin)
 
-	fmt.Printf("Loaded %d commands from '%s'\n", len(ncmd), fp)
+	fmt.Printf("Loaded [%d+%d] commands from '%s'\n", len(ncmd), len(hcmd), fp)
 }
 
 func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
@@ -328,7 +347,9 @@ func indexPage(pctx ginext.PreContext) ginext.HTTPResponse {
 	commandsCopy := func() []Command {
 		gil.Lock()
 		defer gil.Unlock()
-		return langext.ArrConcat(langext.ArrCopy(commandHistory), langext.ArrCopy(commands))
+		r := langext.ArrConcat(langext.ArrCopy(commandHistory), langext.ArrCopy(commands))
+		langext.ReverseArray(r)
+		return r
 	}()
 
 	data := gin.H{
@@ -396,7 +417,9 @@ func historyPage(pctx ginext.PreContext) ginext.HTTPResponse {
 	commandsCopy := func() []Command {
 		gil.Lock()
 		defer gil.Unlock()
-		return langext.ArrConcat(langext.ArrCopy(commandHistory), langext.ArrCopy(commands))
+		r := langext.ArrConcat(langext.ArrCopy(commandHistory), langext.ArrCopy(commands))
+		langext.ReverseArray(r)
+		return r
 	}()
 
 	data := gin.H{

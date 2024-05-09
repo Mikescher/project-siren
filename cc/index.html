@@ -51,6 +51,11 @@
 
             .str { font-family: monospace; color: #242; background-color: #AFA; padding: 2px 4px; border: 1px solid #7B7; }
 
+            .str {
+                overflow-x: hidden;
+                text-overflow: ellipsis;
+            }
+
             &[data-status='PENDING']  > .status { background-color: #FF0; border: 1px solid #880; border-radius: 8px; }
             &[data-status='SKIPPED']  > .status { background-color: #FA0; border: 1px solid #F80; border-radius: 8px; }
             &[data-status='EXECUTED'] > .status { background-color: #8AF; border: 1px solid #008; border-radius: 8px; }
@@ -170,7 +175,7 @@ const exampleLamp = `
 {
     "action":"LAMP",                   //
     "delay": 0,                        // milliseconds, optional
-    "duration": 1000,                  // milliseconds
+    "duration": 8000,                  // milliseconds
 }
 ]`;
 
@@ -207,7 +212,7 @@ const examplePWMBuzzer = `
     "action":"BUZZER_PWM",             //
     "delay": 0,                        // milliseconds, optional
     "duration": 1000,                  // milliseconds
-    "frequency": 2000,                 // Hz, between 1000 and 3000
+    "frequency": 2500,                 // Hz, between 1000 and 3000
 }
 ]`;
 
@@ -216,21 +221,30 @@ const examplePWMBuzzerFunc = `
 {
     "action":"BUZZER_PWM_FUNC",        //
     "delay": 0,                        // milliseconds, optional
-    "duration": 1000,                  // milliseconds
-    "frequencyMin": 2000,              // Hz, between 1000 and 3000
-    "frequencyMax": 2000,              // Hz, between 1000 and 3000
+    "duration": 1500,                  // milliseconds
+    "frequencyMin": 1500,              // Hz, between 1000 and 3000
+    "frequencyMax": 2500,              // Hz, between 1000 and 3000
     "func": "SINUS",                   // ["SINUS", "TRIANGLE", "SAWTOOTH", "SQUARE"]
-    "period": 1000                     // milliseconds
+    "period": 500                      // milliseconds
 }
 ]`;
 
 const examplePWMBuzzerNotes = `
 [
 {
-    "action":"BUZZER_PWM_NOTES",       //
-    "delay": 0,                        // milliseconds, optional
-    "noteLength": 300,                 // milliseconds, duration of a single note
-    "notes": [1500, 2000, 2500, 3000], // Hz, between 1000 and 3000
+    "action":"BUZZER_PWM_NOTES",             //
+    "delay": 0,                              // milliseconds, optional
+    "noteLength": 100,                       // milliseconds, duration of a single note
+    "notes": [                               // Hz, between 1000 and 3000  ( 0 for silence )
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+        1500, 2000, 2500, 3000,
+    ],
 }
 ]`;
 
