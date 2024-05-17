@@ -31,7 +31,7 @@ CMD_PWM_NOTE_OFF = 15
 ####### SETUP #########
 
     
-("[SETUP] Startup")
+print("[SETUP] Startup")
 
 rpi_led = Pin('LED', Pin.OUT)
 
@@ -313,13 +313,13 @@ def pwm_func_square(timer):
 
 
 def force_kill_lamp():
-    ("[FORCE_KILL_LAMP] Trigger")
+    print("[FORCE_KILL_LAMP] Trigger")
         
     key.value(0)
     time.sleep_ms(500)
     key.value(1)
     
-    ("[FORCE_KILL_LAMP] Reset")
+    print("[FORCE_KILL_LAMP] Reset")
 
     time.sleep_ms(500)
 
@@ -327,7 +327,7 @@ def force_kill_lamp():
     time.sleep_ms(3000)
     key.value(1)
     
-    ("[FORCE_KILL_LAMP] Done")
+    print("[FORCE_KILL_LAMP] Done")
 
 
 def cmd_worker():
