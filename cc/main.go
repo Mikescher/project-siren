@@ -245,9 +245,18 @@ func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
 	}
 
 	var b body
-	err := json5.Unmarshal(rb, &b)
-	if err != nil {
-		return ginext.Error(err)
+	if strings.HasPrefix(strings.TrimSpace(string(rb)), "{") {
+		var sb Command
+		err := json5.Unmarshal(rb, &sb)
+		if err != nil {
+			return ginext.Error(err)
+		}
+		b = body{sb}
+	} else {
+		err := json5.Unmarshal(rb, &b)
+		if err != nil {
+			return ginext.Error(err)
+		}
 	}
 
 	log.Debug().Msgf("[REQ]  <add> from %s", gctx.ClientIP())
