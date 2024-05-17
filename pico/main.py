@@ -309,6 +309,18 @@ def pwm_func_square(timer):
         bzr_passive_1.freq(int(freq))
 
 
+def force_kill_lamp():
+    key.value(0)
+    time.sleep_ms(500)
+    key.value(1)
+
+    time.sleep_ms(500)
+
+    key.value(0)
+    time.sleep_ms(3000)
+    key.value(1)
+
+
 def cmd_worker():
     global cmd_queue
     global pwm_func_start
@@ -344,9 +356,9 @@ def cmd_worker():
             led_b.value(0)
             buzz_fn_worker.deinit()
             cmd_queue = []
-            key.value(0)
-            time.sleep_ms(5000) # really, really, sure
-            key.value(1)
+            
+            force_kill_lamp()
+            
         elif icmd == CMD_KEY_ON:
             key.value(0) # open drain - inverted
         elif icmd == CMD_KEY_OFF:
@@ -420,6 +432,20 @@ def cmd_worker():
 
 ################  ################  ################  ################  ################  ################  ##################
 
+time.sleep_ms(200)
+led_blink(led_b, 1, 0.1, 0.1)
+time.sleep_ms(200)
+
+force_kill_lamp()
+
+time.sleep_ms(200)
+led_blink(led_b, 2, 0.1, 0.1)
+time.sleep_ms(200)
+
+time.sleep_ms(300)
+
+################  ################  ################  ################  ################  ################  ##################
+
 wifi_connect()
 
 ################  ################  ################  ################  ################  ################  ##################
@@ -438,6 +464,8 @@ enabl_timer_cmdworker = 1
 
 t0 = time.ticks_ms()
 
+last_was_cmdworker = False
+
 ################  ################  ################  ################  ################  ################  ##################
 
 while True:
@@ -445,6 +473,13 @@ while True:
     try:
         
         ticks = time.ticks_ms()
+        
+        # fast branch
+        if enabl_timer_cmdworker == 1 and last_was_cmdworker and ((len(cmd_queue) > 0) and (cmd_queue[0][0] < (ticks + delta_timer_cmdworker*2) )):
+            cmd_worker()
+            last_timer_cmdworker = ticks = time.ticks_ms()
+            last_was_cmdworker = True
+            continue
         
         if enabl_timer_wifi == 1 and (ticks - last_timer_wifi) > delta_timer_wifi:
             wifi_worker()
@@ -454,9 +489,12 @@ while True:
             cmd_query_worker()
             last_timer_cmdquery = ticks = time.ticks_ms()
             
-        if enabl_timer_cmdworker == 1 and ((ticks - last_timer_cmdworker) > delta_timer_cmdworker or ((len(cmd_queue) > 0) and (cmd_queue[0][0] < (nowticks - delta_timer_cmdworker*2) )) ):
+        if enabl_timer_cmdworker == 1 and (ticks - last_timer_cmdworker) > delta_timer_cmdworker:
             cmd_worker()
             last_timer_cmdworker = ticks = time.ticks_ms()
+            last_was_cmdworker = True
+        else:
+            last_was_cmdworker = False
 
     except Exception as e:
         print('Error in main loop: ' + str(e))
