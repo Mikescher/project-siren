@@ -451,7 +451,7 @@ while True:
             cmd_query_worker()
             last_timer_cmdquery = ticks = time.ticks_ms()
             
-        if enabl_timer_cmdworker == 1 and (ticks - last_timer_cmdworker) > delta_timer_cmdworker:
+        if enabl_timer_cmdworker == 1 and ((ticks - last_timer_cmdworker) > delta_timer_cmdworker or ((len(cmd_queue) > 0) and (cmd_queue[0][0] < (nowticks - delta_timer_cmdworker*2) )) ):
             cmd_worker()
             last_timer_cmdworker = ticks = time.ticks_ms()
 
