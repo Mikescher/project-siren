@@ -204,7 +204,7 @@ def enqueue_cmd(cmdstr):
         cmd_queue.append([t0,                             CMD_KEY_ON,       cmd])
         cmd_queue.append([t0+200,                         CMD_KEY_OFF,      cmd])
         cmd_queue.append([t0 + int(cmd['duration']),      CMD_KEY_ON,       cmd])
-        cmd_queue.append([t0 + int(cmd['duration'])+2000, CMD_KEY_OFF,      cmd])
+        cmd_queue.append([t0 + int(cmd['duration'])+3000, CMD_KEY_OFF,      cmd])
     elif split[1] == "BUZZER_1":
         cmd_queue.append([t0,                             CMD_BZR1_ON,      cmd])
         cmd_queue.append([t0 + int(cmd['duration']),      CMD_BZR1_OFF,     cmd])
@@ -344,6 +344,9 @@ def cmd_worker():
             led_b.value(0)
             buzz_fn_worker.deinit()
             cmd_queue = []
+            key.value(0)
+            time.sleep_ms(5000) # really, really, sure
+            key.value(1)
         elif icmd == CMD_KEY_ON:
             key.value(0) # open drain - inverted
         elif icmd == CMD_KEY_OFF:
