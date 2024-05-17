@@ -86,6 +86,8 @@ func main() {
 	engine.Routes().GET("/cc").Handle(peekCommands)
 	engine.Routes().PUT("/cc").Handle(addCommands)
 
+	engine.Routes().POST("/templates/clubscale-tickets").Handle(addTemplateClubscaleTickets)
+
 	routerErr, router := engine.ListenAndServeHTTP("0.0.0.0:8000", func(port string) {})
 
 	sigstop := make(chan os.Signal, 1)
@@ -234,15 +236,19 @@ func loadCommands(lock bool) {
 }
 
 func addCommands(pctx ginext.PreContext) ginext.HTTPResponse {
-	type body []Command
-
-	t0 := time.Now()
-
 	var rb []byte
 	_, gctx, errResp := pctx.RawBody(&rb).Start()
 	if errResp != nil {
 		return *errResp
 	}
+
+	return addNewCommands(rb, gctx)
+}
+
+func addNewCommands(rb []byte, gctx *gin.Context) ginext.HTTPResponse {
+	t0 := time.Now()
+
+	type body []Command
 
 	var b body
 	if strings.HasPrefix(strings.TrimSpace(string(rb)), "{") {
@@ -442,4 +448,42 @@ func historyPage(pctx ginext.PreContext) ginext.HTTPResponse {
 	}
 
 	return ginext.Data(200, "text/html", buffer.Bytes())
+}
+
+func addTemplateClubscaleTickets(pctx ginext.PreContext) ginext.HTTPResponse {
+	_, gctx, errResp := pctx.Start()
+	if errResp != nil {
+		return *errResp
+	}
+
+	cmds := `
+[
+
+
+    {    "action":"LAMP",            "delay": 0,                 "duration": 8000,       },
+
+    {
+        "action":"BUZZER_PWM_NOTES",     
+        "delay": 0,                      
+        "noteLength": 100,               
+        "notes": [                       
+            1500, 2000, 2500, 3000,
+            1500, 2000, 2500, 3000,
+            1500, 2000, 2500, 3000,
+            2000, 2000, 2000, 2000,
+        ],
+    },
+
+    {    "action":"BUZZER_1",        "delay": 2000,   "duration": 200,        },
+    {    "action":"BUZZER_1",        "delay": 2400,   "duration": 200,        },
+    {    "action":"BUZZER_1",        "delay": 2800,   "duration": 200,        },
+
+    {    "action":"BUZZER_1",        "delay": 4000,   "duration": 200,        },
+    {    "action":"BUZZER_1",        "delay": 4400,   "duration": 200,        },
+    {    "action":"BUZZER_1",        "delay": 4800,   "duration": 200,        },
+
+]
+`
+
+	return addNewCommands([]byte(cmds), gctx)
 }
